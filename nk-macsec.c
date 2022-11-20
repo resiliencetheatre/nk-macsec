@@ -61,6 +61,7 @@ char	kdf_key_from_nitrokey[PEER_COUNT][KDF_LEN+1];
 /* Index of my own mac address & key in nitrokey slots */
 uint8_t	myid=99;
 char	myinterface_name[IFACE_NAME_LEN];
+char	masquerade_interface_name[IFACE_NAME_LEN];
 
 /* Random */
 pcg32_random_t rng;
@@ -128,11 +129,11 @@ void generate_shell_script(int setroute, int usesudo)
 			printf(" ip route add default via 10.100.0.1 \n");
 			printf(" # echo \"nameserver 1.1.1.1\" > /etc/resolv.conf \n");
 		} else {
-			printf(" # RPi role includes masquerade between macsec0 and eth0\n");
+			printf(" # RPi role includes masquerade between macsec0 and %s\n",masquerade_interface_name);
 			printf(" echo 1 > /proc/sys/net/ipv4/ip_forward \n");
 			printf(" nft add table nat \n");
 			printf(" nft 'add chain nat postrouting { type nat hook postrouting priority 100 ; }' \n");
-			printf(" nft add rule nat postrouting ip saddr 10.100.0.0/24 oif eth0 masquerade \n");
+			printf(" nft add rule nat postrouting ip saddr 10.100.0.0/24 oif %s masquerade \n",masquerade_interface_name);
 		}
 		printf(" exit 0\n");
 		printf(" \n");
@@ -209,6 +210,7 @@ int main(int argc, char *argv[])
 	char userpin[USER_PIN_LEN];
 	char macaddress[MAC_LEN];
 	char *interface_name=NULL;
+	char *masquerade_interface=NULL;
 	uint8_t setroute=0;
 	uint8_t usesudo=0;
 	uint8_t logging=0;
@@ -232,7 +234,9 @@ int main(int argc, char *argv[])
 	memset(myinterface_name,0,IFACE_NAME_LEN);
 	memset(salt, 0x00, SALTLEN );
 	memset(userpin,0,USER_PIN_LEN);
-		
+	/* Default masquerade interface */
+	memset(masquerade_interface_name,0,IFACE_NAME_LEN);
+	strcpy(masquerade_interface_name,"eth0"); 
 	/* Command line options */
 	int c;
 	while ((c = getopt (argc, argv, "p:i:sghf:rol")) != -1)
@@ -247,6 +251,12 @@ int main(int argc, char *argv[])
 			strcpy(myinterface_name,interface_name);
 			get_macaddress(optarg,macaddress);
 			log_info("[%d] interface: %s has mac address: %s ", getpid(),optarg,macaddress );
+			break;
+		case 'm':
+			masquerade_interface = optarg;
+			memset(masquerade_interface_name,0,IFACE_NAME_LEN);
+			strcpy(masquerade_interface_name,masquerade_interface); 
+			log_info("[%d] masquerade interface: %s for script", getpid(),masquerade_interface );
 			break;
 		case 'f':
 			peer_mac_address_status = read_mac_addresses(optarg); 
@@ -277,6 +287,7 @@ int main(int argc, char *argv[])
 			log_info("[%d]           -s                 set keys to Nitrokey", getpid() );
 			log_info("[%d]           -i [interface]     used network interface", getpid() );
 			log_info("[%d]           -f [filename]      macsec address file", getpid() );
+			log_info("[%d]           -m [interface]     masquerade interface for macsec script (defaults to eth0)", getpid() );
 			log_info("[%d]           -r                 output 'ip route' to shell script (use with clients)", getpid() );
 			log_info("[%d]           -o                 generate shell script with 'sudo' prefix (client prefered option)", getpid() );
 			log_info("[%d]           -l                 debug logging to /tmp/nk-macsec.log (exposes keys in clear text)", getpid() );
