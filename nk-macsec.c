@@ -239,7 +239,7 @@ int main(int argc, char *argv[])
 	strcpy(masquerade_interface_name,"eth0"); 
 	/* Command line options */
 	int c;
-	while ((c = getopt (argc, argv, "p:i:sghf:rol")) != -1)
+	while ((c = getopt (argc, argv, "p:i:m:sghf:rol")) != -1)
 	switch (c)
 	{
 		case 'p':
